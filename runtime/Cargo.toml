@@ -51,6 +51,8 @@ frame-system-benchmarking = { version = "4.0.0-dev", default-features = false, g
 pallet-template = { version = "4.0.0-dev", default-features = false, path = "../pallets/template" }
 # pallet-poe = { version = "4.0.0-dev", default-features = false, path = "../pallets/poe" }
 pallet-poe = { version = "4.0.0-dev", default-features = false, git = "https://github.com/taokeqin/oneblock-poe.git", branch = "main" }
+pallet-kitties = { version = "4.0.0-dev", default-features = false, path = "../pallets/kitties" }
+getrandom = { version = "0.2", features = ["js"] }
 #my dependencies
 pallet-nicks = { version = "4.0.0-dev", default-features = false, git = "https://github.com/paritytech/substrate.git", branch = "polkadot-v0.9.42" }
 
@@ -93,6 +95,7 @@ std = [
 	"substrate-wasm-builder",
 	"pallet-nicks/std",
 	"pallet-poe/std",
+	"pallet-kitties/std",
 ]
 runtime-benchmarks = [
 	"frame-benchmarking/runtime-benchmarks",

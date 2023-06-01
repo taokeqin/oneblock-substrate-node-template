@@ -279,6 +279,11 @@ impl pallet_poe::Config for Runtime {
 	type MaxClaimLength = ConstU32<32>;
 }
 
+impl pallet_kitties::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Randomness = Randomness;
+}
+
 parameter_types! {
 	pub FeeMultiplier: Multiplier = Multiplier::one();
 }
@@ -322,6 +327,7 @@ construct_runtime!(
 		TemplateModule: pallet_template,
 		Nicks: pallet_nicks,
 		Poe: pallet_poe,
+		Kitties: pallet_kitties,
 	}
 );
 
