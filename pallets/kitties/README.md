@@ -2,4 +2,4 @@ License: MIT-0
 
 ## Tests
 
-![Tests](/tests.png?raw=true "Tests")
+![Tests](/kitties/pallets/kitties/tests.png?raw=true "Tests")
