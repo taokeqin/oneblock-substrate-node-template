@@ -249,6 +249,36 @@ impl pallet_balances::Config for Runtime {
 	type MaxHolds = ();
 }
 
+impl pallet_nicks::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	type Currency = Balances;
+
+	// Set ReservationFee to a value.
+	type ReservationFee = ConstU128<100>;
+
+	// No action is taken when deposits are forfeited.
+	type Slashed = ();
+
+	// Configure the FRAME System Root origin as the Nick pallet admin.
+	// https://paritytech.github.io/substrate/master/frame_system/enum.RawOrigin.html#variant.Root
+	type ForceOrigin = frame_system::EnsureRoot<AccountId>;
+
+	// Set MinLength of nick name to a desired value.
+	type MinLength = ConstU32<8>;
+
+	// Set MaxLength of nick name to a desired value.
+	type MaxLength = ConstU32<32>;
+
+	// The ubiquitous event type.
+	//type RuntimeEvent = RuntimeEvent;
+}
+
+impl pallet_poe::Config for Runtime {
+	type RuntimeEvent = RuntimeEvent;
+	// Set MaxLength of nick name to a desired value.
+	type MaxClaimLength = ConstU32<32>;
+}
+
 parameter_types! {
 	pub FeeMultiplier: Multiplier = Multiplier::one();
 }
@@ -290,6 +320,8 @@ construct_runtime!(
 		Sudo: pallet_sudo,
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
+		Nicks: pallet_nicks,
+		Poe: pallet_poe,
 	}
 );
 
