@@ -7,6 +7,7 @@
 include!(concat!(env!("OUT_DIR"), "/wasm_binary.rs"));
 
 use pallet_grandpa::AuthorityId as GrandpaId;
+use pallet_insecure_randomness_collective_flip;
 use sp_api::impl_runtime_apis;
 use sp_consensus_aura::sr25519::AuthorityId as AuraId;
 use sp_core::{crypto::KeyTypeId, OpaqueMetadata};
@@ -22,7 +23,6 @@ use sp_std::prelude::*;
 #[cfg(feature = "std")]
 use sp_version::NativeVersion;
 use sp_version::RuntimeVersion;
-
 // A few exports that help ease life for downstream crates.
 pub use frame_support::{
 	construct_runtime, parameter_types,
@@ -279,9 +279,11 @@ impl pallet_poe::Config for Runtime {
 	type MaxClaimLength = ConstU32<32>;
 }
 
+impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
+
 impl pallet_kitties::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
-	type Randomness = Randomness;
+	type Randomness = RandomnessCollectiveFlip;
 }
 
 parameter_types! {
@@ -328,6 +330,7 @@ construct_runtime!(
 		Nicks: pallet_nicks,
 		Poe: pallet_poe,
 		Kitties: pallet_kitties,
+		RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
 	}
 );
 
