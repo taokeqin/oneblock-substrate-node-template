@@ -174,8 +174,7 @@ pub mod pallet {
 		#[pallet::weight(10_1000)]
 		pub fn sale(
 			origin: OriginFor<T>,
-			kitty_id: KittyId,
-			price: BalanceOf<T>,
+			kitty_id: KittyId
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(Kitties::<T>::contains_key(kitty_id), Error::<T>::InvalidKittyId);
