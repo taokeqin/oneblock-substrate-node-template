@@ -12,12 +12,15 @@ mod tests;
 pub mod pallet {
 	use super::*;
 	use frame_support::pallet_prelude::*;
-	use frame_support::traits::Randomness;
+	use frame_support::traits::{Currency, ExistenceRequirement, Randomness};
+	use frame_support::PalletId;
 	use frame_system::pallet_prelude::*;
 	use sp_io::hashing::blake2_128;
+	use sp_runtime::traits::AccountIdConversion;
 
 	pub type KittyId = u32;
-
+	pub type BalanceOf<T> =
+		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	#[derive(
 		Encode, Decode, Clone, Copy, RuntimeDebug, PartialEq, Eq, Default, TypeInfo, MaxEncodedLen,
 	)]
@@ -31,6 +34,11 @@ pub mod pallet {
 		/// Because this pallet emits events, it depends on the runtime's definition of an event.
 		type RuntimeEvent: From<Event<Self>> + IsType<<Self as frame_system::Config>::RuntimeEvent>;
 		type Randomness: Randomness<Self::Hash, Self::BlockNumber>;
+		type Currency: Currency<Self::AccountId>;
+		#[pallet::constant]
+		type KittyPrice: Get<BalanceOf<Self>>;
+
+		type PalletId: Get<PalletId>;
 	}
 
 	#[pallet::storage]
@@ -51,12 +59,19 @@ pub mod pallet {
 	pub type KittyParents<T: Config> =
 		StorageMap<_, Blake2_128Concat, KittyId, (KittyId, KittyId), ValueQuery>;
 
+	// kitty on sale
+	#[pallet::storage]
+	#[pallet::getter(fn kitty_on_sale)]
+	pub type KittyOnSale<T: Config> = StorageMap<_, Blake2_128Concat, KittyId, ()>;
+
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
 	pub enum Event<T: Config> {
 		KittyCreated { who: T::AccountId, kitty_id: KittyId, kitty: Kitty },
 		KittyBreed { who: T::AccountId, kitty_id: KittyId, kitty: Kitty },
 		KittyTransferred { from: T::AccountId, to: T::AccountId, kitty_id: KittyId },
+		KittyOnSale { who: T::AccountId, kitty_id: KittyId },
+		KittyBought { who: T::AccountId, kitty_id: KittyId },
 	}
 
 	// Errors inform users that something went wrong.
@@ -67,6 +82,8 @@ pub mod pallet {
 		/// Errors should have helpful documentation associated with them.
 		StorageOverflow,
 		InvalidKittyId,
+		AlreadyOnSale,
+		NotOnSale,
 	}
 
 	#[pallet::call]
@@ -78,6 +95,14 @@ pub mod pallet {
 			let kitty_id = Self::get_next_id()?;
 			ensure!(kitty_id != KittyId::max_value(), Error::<T>::StorageOverflow);
 			let kitty = Kitty(Self::random_value(&who));
+			let price = T::KittyPrice::get();
+			//T::Currency::reserve(&who, price)?;
+			T::Currency::transfer(
+				&who,
+				&Self::get_account_id(),
+				price,
+				ExistenceRequirement::KeepAlive,
+			)?;
 			Kitties::<T>::insert(kitty_id, kitty.clone());
 			KittyOwner::<T>::insert(kitty_id, who.clone());
 			// Emit an event.
@@ -110,6 +135,8 @@ pub mod pallet {
 				new_kitty_data[i] = (kitty1.0[i] & base_data[i]) | (!kitty2.0[i] & !base_data[i]);
 			}
 			let kitty = Kitty(new_kitty_data);
+			let price = T::KittyPrice::get();
+			//T::Currency::reserve(&who, price)?;
 
 			Kitties::<T>::insert(kitty_id, kitty.clone());
 			KittyOwner::<T>::insert(kitty_id, who.clone());
@@ -141,6 +168,50 @@ pub mod pallet {
 			Self::deposit_event(Event::KittyTransferred { from, to, kitty_id });
 			Ok(())
 		}
+
+		// sell kitty
+		#[pallet::call_index(3)]
+		#[pallet::weight(10_1000)]
+		pub fn sale(
+			origin: OriginFor<T>,
+			kitty_id: KittyId,
+			price: BalanceOf<T>,
+		) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(Kitties::<T>::contains_key(kitty_id), Error::<T>::InvalidKittyId);
+			ensure!(KittyOwner::<T>::contains_key(kitty_id), Error::<T>::InvalidKittyId);
+
+			let owner = KittyOwner::<T>::get(kitty_id).ok_or(Error::<T>::InvalidKittyId)?;
+			ensure!(owner == who, Error::<T>::InvalidKittyId);
+			ensure!(Self::kitty_on_sale(kitty_id).is_some(), Error::<T>::AlreadyOnSale);
+
+			KittyOnSale::<T>::insert(kitty_id, ());
+			Self::deposit_event(Event::KittyOnSale { who, kitty_id });
+			Ok(())
+		}
+
+		// buy kitty
+		#[pallet::call_index(4)]
+		#[pallet::weight(10_1000)]
+		pub fn buy(origin: OriginFor<T>, kitty_id: KittyId) -> DispatchResult {
+			let who = ensure_signed(origin)?;
+			ensure!(Kitties::<T>::contains_key(kitty_id), Error::<T>::InvalidKittyId);
+			ensure!(KittyOwner::<T>::contains_key(kitty_id), Error::<T>::InvalidKittyId);
+
+			let owner = KittyOwner::<T>::get(kitty_id).ok_or(Error::<T>::InvalidKittyId)?;
+			ensure!(owner != who, Error::<T>::InvalidKittyId);
+			ensure!(Self::kitty_on_sale(kitty_id).is_some(), Error::<T>::NotOnSale);
+
+			let price = T::KittyPrice::get();
+			//T::Currency::reserve(&who, price)?;
+			//T::Currency::unreserve(&owner, price);
+			T::Currency::transfer(&who, &owner, price, ExistenceRequirement::KeepAlive)?;
+			KittyOwner::<T>::insert(kitty_id, who.clone());
+			KittyOnSale::<T>::remove(kitty_id);
+
+			Self::deposit_event(Event::KittyBought { who, kitty_id });
+			Ok(())
+		}
 	}
 
 	impl<T: Config> Pallet<T> {
@@ -161,6 +232,9 @@ pub mod pallet {
 				<frame_system::Pallet<T>>::extrinsic_index(),
 			);
 			payload.using_encoded(blake2_128)
+		}
+		fn get_account_id() -> T::AccountId {
+			T::PalletId::get().into_account_truncating()
 		}
 	}
 }
