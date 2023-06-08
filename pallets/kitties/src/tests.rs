@@ -7,10 +7,13 @@ use frame_system::{EventRecord, Phase};
 fn create_kitty_works() {
 	new_test_ext().execute_with(|| {
 		let kitty_id = 0;
-		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1)));
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1), *b"good"));
 		assert_eq!(
 			KittiesModule::kitties(kitty_id),
-			Some(Kitty([215, 75, 66, 60, 234, 156, 146, 62, 247, 65, 230, 205, 192, 2, 31, 70])) // this value copy from a failed test, as it generated from the fixed block number.
+			Some(Kitty {
+				dna: [215, 75, 66, 60, 234, 156, 146, 62, 247, 65, 230, 205, 192, 2, 31, 70],
+				name: *b"good"
+			}) // this value copy from a failed test, as it generated from the fixed block number.
 		);
 	});
 }
@@ -21,7 +24,7 @@ fn create_kitty_works_with_event_sent() {
 	new_test_ext().execute_with(|| {
 		let kitty_id = 0;
 		let who = 1;
-		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1)));
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1), *b"good"));
 		let kitty = KittiesModule::kitties(kitty_id).unwrap();
 		let expected_event = Event::KittyCreated { who, kitty_id, kitty };
 		System::assert_has_event(expected_event.clone().into())
@@ -33,7 +36,7 @@ fn create_kitty_failed_when_kitty_count_exceeds_max_value() {
 	new_test_ext().execute_with(|| {
 		NextKittyId::<Test>::set(KittyId::max_value());
 		assert_noop!(
-			KittiesModule::create(RuntimeOrigin::signed(1)),
+			KittiesModule::create(RuntimeOrigin::signed(1), *b"good"),
 			Error::<Test>::InvalidKittyId
 		);
 	});
@@ -45,14 +48,22 @@ fn breed_kitty_works() {
 		let kitty_id_1 = 0;
 		let kitty_id_2 = 1;
 		let kitty_id_3 = 2;
-		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1)));
-		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1)));
-		assert_ok!(KittiesModule::breed(RuntimeOrigin::signed(1), kitty_id_1, kitty_id_2));
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1), *b"good"));
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1), *b"good"));
+		assert_ok!(KittiesModule::breed(
+			RuntimeOrigin::signed(1),
+			kitty_id_1,
+			kitty_id_2,
+			*b"good"
+		));
 		assert_eq!(
 			KittiesModule::kitties(2),
-			Some(Kitty([
-				255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255
-			]))
+			Some(Kitty {
+				dna: [
+					255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255, 255
+				],
+				name: *b"good"
+			})
 		);
 		// check parent
 		assert_eq!(KittiesModule::kitty_parents(kitty_id_3), (kitty_id_1, kitty_id_2));
@@ -67,9 +78,14 @@ fn breed_kitty_works_with_event_sent() {
 		let kitty_id_2 = 1;
 		let kitty_id_3 = 2;
 		let who = 1;
-		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(who)));
-		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(who)));
-		assert_ok!(KittiesModule::breed(RuntimeOrigin::signed(who), kitty_id_1, kitty_id_2));
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(who), *b"good"));
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(who), *b"good"));
+		assert_ok!(KittiesModule::breed(
+			RuntimeOrigin::signed(who),
+			kitty_id_1,
+			kitty_id_2,
+			*b"good"
+		));
 		let kitty = KittiesModule::kitties(kitty_id_3).unwrap();
 		let expected_event = Event::KittyBreed { who, kitty_id: kitty_id_3, kitty };
 		System::assert_has_event(expected_event.clone().into())
@@ -81,11 +97,11 @@ fn breed_kitty_failed_when_kitty_count_exceeds_max_value() {
 	new_test_ext().execute_with(|| {
 		let kitty_id_1 = 0;
 		let kitty_id_2 = 1;
-		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1))); // 0
-		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1))); // 1
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1), *b"good")); // 0
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(1), *b"good")); // 1
 		NextKittyId::<Test>::set(KittyId::max_value());
 		assert_noop!(
-			KittiesModule::breed(RuntimeOrigin::signed(1), kitty_id_1, kitty_id_2),
+			KittiesModule::breed(RuntimeOrigin::signed(1), kitty_id_1, kitty_id_2, *b"good"),
 			Error::<Test>::InvalidKittyId
 		);
 	});
@@ -97,7 +113,7 @@ fn transfer_kitty_works() {
 		let kitty_id = 0;
 		let from_account_id = 1;
 		let to_account_id = 2;
-		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(from_account_id)));
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(from_account_id), *b"good"));
 		assert_ok!(KittiesModule::transfer(
 			RuntimeOrigin::signed(from_account_id),
 			to_account_id,
@@ -114,7 +130,7 @@ fn transfer_kitty_works_with_event_sent() {
 		let kitty_id = 0;
 		let from_account_id = 1;
 		let to_account_id = 2;
-		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(from_account_id)));
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(from_account_id), *b"good"));
 		assert_ok!(KittiesModule::transfer(
 			RuntimeOrigin::signed(from_account_id),
 			to_account_id,

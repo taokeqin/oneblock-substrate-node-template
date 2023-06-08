@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 
 pub use pallet::*;
-
+mod migrations;
 #[cfg(test)]
 mod mock;
 
@@ -11,22 +11,27 @@ mod tests;
 #[frame_support::pallet]
 pub mod pallet {
 	use super::*;
-	use frame_support::pallet_prelude::*;
+	use crate::migrations;
+	use frame_support::pallet_prelude::{ValueQuery, *};
 	use frame_support::traits::{Currency, ExistenceRequirement, Randomness};
 	use frame_support::PalletId;
 	use frame_system::pallet_prelude::*;
 	use sp_io::hashing::blake2_128;
 	use sp_runtime::traits::AccountIdConversion;
-
 	pub type KittyId = u32;
 	pub type BalanceOf<T> =
 		<<T as Config>::Currency as Currency<<T as frame_system::Config>::AccountId>>::Balance;
 	#[derive(
 		Encode, Decode, Clone, Copy, RuntimeDebug, PartialEq, Eq, Default, TypeInfo, MaxEncodedLen,
 	)]
-	pub struct Kitty(pub [u8; 16]);
-
+	//pub struct Kitty(pub [u8; 16]);
+	pub struct Kitty {
+		pub dna: [u8; 16],
+		pub name: [u8; 4],
+	}
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
 	#[pallet::pallet]
+	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
 
 	#[pallet::config]
@@ -43,11 +48,11 @@ pub mod pallet {
 
 	#[pallet::storage]
 	#[pallet::getter(fn next_kitty_id)]
-	pub type NextKittyId<T> = StorageValue<_, KittyId, ValueQuery>;
+	pub type NextKittyId<T: Config> = StorageValue<_, KittyId, ValueQuery>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn kitties)]
-	pub type Kitties<T> = StorageMap<_, Blake2_128Concat, KittyId, Kitty>;
+	pub type Kitties<T: Config> = StorageMap<_, Blake2_128Concat, KittyId, Kitty>;
 
 	#[pallet::storage]
 	#[pallet::getter(fn owner)]
@@ -86,15 +91,24 @@ pub mod pallet {
 		NotOnSale,
 	}
 
+	#[pallet::hooks]
+	impl<T: Config> Hooks<BlockNumberFor<T>> for Pallet<T> {
+		fn on_runtime_upgrade() -> frame_support::weights::Weight {
+			// do something on runtime upgrade
+			migrations::v0_to_v1::migrate::<T>()
+		}
+	}
+
 	#[pallet::call]
 	impl<T: Config> Pallet<T> {
 		#[pallet::call_index(0)]
 		#[pallet::weight(10_1000)]
-		pub fn create(origin: OriginFor<T>) -> DispatchResult {
+		pub fn create(origin: OriginFor<T>, name: [u8; 4]) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			let kitty_id = Self::get_next_id()?;
 			ensure!(kitty_id != KittyId::max_value(), Error::<T>::StorageOverflow);
-			let kitty = Kitty(Self::random_value(&who));
+			let dna = Self::random_value(&who);
+			let kitty = Kitty { dna, name };
 			let price = T::KittyPrice::get();
 			//T::Currency::reserve(&who, price)?;
 			T::Currency::transfer(
@@ -118,6 +132,7 @@ pub mod pallet {
 			origin: OriginFor<T>,
 			kitty_id_1: KittyId,
 			kitty_id_2: KittyId,
+			name: [u8; 4],
 		) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(Kitties::<T>::contains_key(kitty_id_1), Error::<T>::InvalidKittyId);
@@ -126,15 +141,18 @@ pub mod pallet {
 			ensure!(kitty_id != KittyId::max_value(), Error::<T>::StorageOverflow);
 
 			let base_data = Self::random_value(&who);
-			let mut new_kitty_data = [0u8; 16];
+
 
 			let kitty1 = Kitties::<T>::get(kitty_id_1).ok_or(Error::<T>::InvalidKittyId)?;
 			let kitty2 = Kitties::<T>::get(kitty_id_2).ok_or(Error::<T>::InvalidKittyId)?;
-
-			for i in 0..kitty1.0.len() {
-				new_kitty_data[i] = (kitty1.0[i] & base_data[i]) | (!kitty2.0[i] & !base_data[i]);
+			
+			let mut new_kitty_data = [0u8; 16];
+			for i in 0..kitty1.dna.len() {
+				new_kitty_data[i] =
+					(kitty1.dna[i] & base_data[i]) | (!kitty2.dna[i] & !base_data[i]);
 			}
-			let kitty = Kitty(new_kitty_data);
+			//let dna = Self::random_value(&who); // TODO: fix this with real dna
+			let kitty = Kitty { dna: new_kitty_data, name };
 			let price = T::KittyPrice::get();
 			//T::Currency::reserve(&who, price)?;
 
@@ -172,10 +190,7 @@ pub mod pallet {
 		// sell kitty
 		#[pallet::call_index(3)]
 		#[pallet::weight(10_1000)]
-		pub fn sale(
-			origin: OriginFor<T>,
-			kitty_id: KittyId
-		) -> DispatchResult {
+		pub fn sale(origin: OriginFor<T>, kitty_id: KittyId) -> DispatchResult {
 			let who = ensure_signed(origin)?;
 			ensure!(Kitties::<T>::contains_key(kitty_id), Error::<T>::InvalidKittyId);
 			ensure!(KittyOwner::<T>::contains_key(kitty_id), Error::<T>::InvalidKittyId);
