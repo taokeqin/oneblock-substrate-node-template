@@ -141,3 +141,29 @@ fn transfer_kitty_works_with_event_sent() {
 		System::assert_has_event(expected_event.clone().into())
 	});
 }
+
+// test sale
+#[test]
+fn sale_kitty_works() {
+	new_test_ext().execute_with(|| {
+		let kitty_id = 0;
+		let who = 1;
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(who), *b"goodgood"));
+		assert_ok!(KittiesModule::sale(RuntimeOrigin::signed(who), kitty_id));
+		let expected_event = Event::KittyIsOnSale { who, kitty_id };
+		System::assert_has_event(expected_event.clone().into())
+	});
+}
+
+// test buy
+#[test]
+fn buy_kitty_works() {
+	new_test_ext().execute_with(|| {
+		let kitty_id = 0;
+		let who = 1;
+		let to = 2;
+		assert_ok!(KittiesModule::create(RuntimeOrigin::signed(who), *b"goodgood"));
+		assert_ok!(KittiesModule::sale(RuntimeOrigin::signed(who), kitty_id));
+		assert_ok!(KittiesModule::buy(RuntimeOrigin::signed(to), kitty_id));
+	});
+}

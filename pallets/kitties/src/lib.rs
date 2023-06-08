@@ -29,7 +29,7 @@ pub mod pallet {
 		pub dna: [u8; 16],
 		pub name: [u8; 8],
 	}
-	const STORAGE_VERSION: StorageVersion = StorageVersion::new(1);
+	const STORAGE_VERSION: StorageVersion = StorageVersion::new(2);
 	#[pallet::pallet]
 	#[pallet::storage_version(STORAGE_VERSION)]
 	pub struct Pallet<T>(_);
@@ -67,7 +67,7 @@ pub mod pallet {
 	// kitty on sale
 	#[pallet::storage]
 	#[pallet::getter(fn kitty_on_sale)]
-	pub type KittyOnSale<T: Config> = StorageMap<_, Blake2_128Concat, KittyId, ()>;
+	pub type KittyOnSale<T: Config> = StorageMap<_, Blake2_128Concat, KittyId, Kitty>;
 
 	#[pallet::event]
 	#[pallet::generate_deposit(pub(super) fn deposit_event)]
@@ -75,7 +75,7 @@ pub mod pallet {
 		KittyCreated { who: T::AccountId, kitty_id: KittyId, kitty: Kitty },
 		KittyBreed { who: T::AccountId, kitty_id: KittyId, kitty: Kitty },
 		KittyTransferred { from: T::AccountId, to: T::AccountId, kitty_id: KittyId },
-		KittyOnSale { who: T::AccountId, kitty_id: KittyId },
+		KittyIsOnSale { who: T::AccountId, kitty_id: KittyId },
 		KittyBought { who: T::AccountId, kitty_id: KittyId },
 	}
 
@@ -196,10 +196,10 @@ pub mod pallet {
 
 			let owner = KittyOwner::<T>::get(kitty_id).ok_or(Error::<T>::InvalidKittyId)?;
 			ensure!(owner == who, Error::<T>::InvalidKittyId);
-			ensure!(Self::kitty_on_sale(kitty_id).is_some(), Error::<T>::AlreadyOnSale);
-
-			KittyOnSale::<T>::insert(kitty_id, ());
-			Self::deposit_event(Event::KittyOnSale { who, kitty_id });
+			ensure!(Self::kitty_on_sale(kitty_id).is_none(), Error::<T>::AlreadyOnSale);
+			let kitty = Kitties::<T>::get(kitty_id).ok_or(Error::<T>::InvalidKittyId)?;
+			KittyOnSale::<T>::insert(kitty_id, kitty);
+			Self::deposit_event(Event::KittyIsOnSale { who, kitty_id });
 			Ok(())
 		}
 
