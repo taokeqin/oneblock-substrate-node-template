@@ -18,7 +18,6 @@
 ```
 	pub struct Kitty {
 		pub dna: [u8; 16],
-		pub name: [u8; 4],
-        pub color: [u8; 4],
+		pub name: [u8; 8],
 	}
 ```
