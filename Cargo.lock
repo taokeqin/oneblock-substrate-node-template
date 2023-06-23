@@ -4736,13 +4736,16 @@ dependencies = [
 [[package]]
 name = "pallet-poe"
 version = "4.0.0-dev"
-source = "git+https://github.com/taokeqin/oneblock-poe.git?branch=main#fcc094cf9da7941d799a03cfa8c484ed201c9cbe"
 dependencies = [
  "frame-benchmarking",
  "frame-support",
  "frame-system",
  "parity-scale-codec",
  "scale-info",
+ "sp-core",
+ "sp-io",
+ "sp-runtime",
+ "sp-std",
 ]
 
 [[package]]

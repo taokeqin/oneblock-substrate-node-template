@@ -277,6 +277,7 @@ impl pallet_poe::Config for Runtime {
 	type RuntimeEvent = RuntimeEvent;
 	// Set MaxLength of nick name to a desired value.
 	type MaxClaimLength = ConstU32<32>;
+	type WeightInfo = pallet_poe::weights::SubstrateWeight<Runtime>;
 }
 
 impl pallet_insecure_randomness_collective_flip::Config for Runtime {}
@@ -328,7 +329,7 @@ construct_runtime!(
 		// Include the custom logic from the pallet-template in the runtime.
 		TemplateModule: pallet_template,
 		Nicks: pallet_nicks,
-		Poe: pallet_poe,
+		PoeModule: pallet_poe,
 		Kitties: pallet_kitties,
 		RandomnessCollectiveFlip: pallet_insecure_randomness_collective_flip,
 	}
@@ -378,6 +379,7 @@ mod benches {
 		[pallet_balances, Balances]
 		[pallet_timestamp, Timestamp]
 		[pallet_template, TemplateModule]
+		[pallet_poe, PoeModule]
 	);
 }
 
